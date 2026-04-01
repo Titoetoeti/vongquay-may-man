@@ -134,15 +134,15 @@
          * Tổng trọng số tương đối (50+35+40+5+1 = 131)
          */
         const prizes = [
-            { label: "Chúc bạn may mắn", weight: 20, color: "#4b5563", type: "lose" }, // May mắn (1/2) - 20%
-            { label: "Kẹo mút", weight: 16.66, color: "#ec4899", type: "gift" },    // Kẹo (1/3) - 16.66%
-            { label: "Bánh ngọt", weight: 17.5, color: "#f59e0b", type: "gift" },     // Bánh (1/2) - 17.5%
-            { label: "Chúc bạn may mắn", weight: 20, color: "#374151", type: "lose" }, // May mắn (2/2) - 20%
-            { label: "50.000 VNĐ", weight: 1, color: "#ef4444", type: "jackpot" },     // 50k - 1%
-            { label: "Kẹo mút", weight: 16.67, color: "#db2777", type: "gift" },    // Kẹo (2/3) - 16.67%
-            { label: "20.000 VNĐ", weight: 5, color: "#10b981", type: "money" },       // 20k - 5%
-            { label: "Kẹo mút", weight: 16.67, color: "#be185d", type: "gift" },    // Kẹo (3/3) - 16.67%
-            { label: "Bánh ngọt", weight: 17.5, color: "#d97706", type: "gift" }      // Bánh (2/2) - 17.5%
+            { label: "Chúc bạn may mắn", weight: 10, color: "#4b5563", type: "lose" }, 
+            { label: "Kẹo mút", weight: 18, color: "#ec4899", type: "gift" },    
+            { label: "Bánh ngọt", weight: 10, color: "#f59e0b", type: "gift" },    
+            { label: "Kẹo mút", weight: 18, color: "#db2777", type: "gift" }, 
+            { label: "50.000 VNĐ", weight: 1, color: "#ef4444", type: "jackpot" },     
+            { label: "Chúc bạn may mắn", weight: 10, color: "#374151", type: "lose" },    
+            { label: "20.000 VNĐ", weight: 5, color: "#10b981", type: "money" },       
+            { label: "Kẹo mút", weight: 18, color: "#be185d", type: "gift" },    
+            { label: "Bánh ngọt", weight: 10, color: "#d97706", type: "gift" }      
         ];
 
         const totalWeight = prizes.reduce((sum, p) => sum + p.weight, 0);
