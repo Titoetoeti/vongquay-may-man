@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vòng Quay May Mắn</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            overflow-x: hidden;
+        }
+
+        #wheel-container {
+            position: relative;
+            width: 90vw;
+            max-width: 450px;
+            aspect-ratio: 1;
+            margin: 20px auto;
+        }
+
+        #wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 10px solid #ffd700;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3), inset 0 0 20px rgba(0,0,0,0.5);
+            /* Transition mượt mà cho vòng quay */
+            transition: transform 5s cubic-bezier(0.2, 0, 0.2, 1);
+        }
+
+        #pointer {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 46px;
+            height: 56px;
+            background: #ff4d4d;
+            clip-path: polygon(50% 100%, 0 0, 100% 0);
+            z-index: 30;
+            filter: drop-shadow(0 4px 5px rgba(0,0,0,0.5));
+            border-bottom: 2px solid white;
+        }
+
+        .btn-spin {
+            background: linear-gradient(135deg, #ffd700 0%, #ffa500 100%);
+            color: #000;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .btn-spin:active {
+            transform: scale(0.95);
+        }
+
+        .btn-spin:disabled {
+            background: #444;
+            color: #888;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #result-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 100;
+            place-items: center;
+        }
+
+        .celebration-canvas {
+            position: absolute;
+            pointer-events: none;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="text-center mb-6">
+        <h1 class="text-3xl font-bold text-yellow-400 mb-2">VÒNG QUAY MAY MẮN</h1>
+        <p class="text-gray-300 text-sm italic">Cơ hội trúng thưởng hấp dẫn!</p>
+    </div>
+
+    <div id="wheel-container">
+        <div id="pointer"></div>
+        <canvas id="wheel"></canvas>
+    </div>
+
+    <div class="mt-8 space-y-4 w-full max-w-xs">
+        <button id="spin-button" class="btn-spin w-full py-4 rounded-full text-xl shadow-lg uppercase tracking-wider">
+            Quay Ngay!
+        </button>
+        
+        <div class="bg-white/10 p-4 rounded-xl border border-white/20 text-center">
+            <p class="text-sm text-gray-400">Hãy thử vận may của bạn.</p>
+        </div>
+    </div>
+
+    <!-- Result Modal -->
+    <div id="result-modal" class="p-6">
+        <div class="bg-white text-gray-900 p-8 rounded-3xl text-center max-w-sm w-full shadow-2xl relative overflow-hidden">
+            <div id="modal-content">
+                <h2 id="result-title" class="text-2xl font-bold mb-2">Thông báo</h2>
+                <p id="result-text" class="text-lg mb-6"></p>
+                <button onclick="closeModal()" class="bg-blue-600 text-white px-8 py-2 rounded-full font-bold hover:bg-blue-700 transition">
+                    Đóng
+                </button>
+            </div>
+            <canvas id="confetti" class="celebration-canvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('wheel');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spin-button');
+        const resultModal = document.getElementById('result-modal');
+        const resultTitle = document.getElementById('result-title');
+        const resultText = document.getElementById('result-text');
+
+        /**
+         * SẮP XẾP LẠI THỨ TỰ CÁC Ô ĐỂ KHÔNG SÁT NHAU
+         * Tổng 9 ô.
+         */
+        const prizes = [
+            { label: "Chúc bạn may mắn", weight: 30, color: "#4b5563", type: "lose" }, // Ô 0
+            { label: "Kẹo mút", weight: 11.6, color: "#ec4899", type: "gift" },       // Ô 1
+            { label: "Bánh ngọt", weight: 10, color: "#f59e0b", type: "gift" },        // Ô 2
+            { label: "Chúc bạn may mắn", weight: 30, color: "#374151", type: "lose" }, // Ô 3
+            { label: "50.000 VNĐ", weight: 1, color: "#ef4444", type: "jackpot" },     // Ô 4
+            { label: "Kẹo mút", weight: 11.7, color: "#db2777", type: "gift" },       // Ô 5
+            { label: "20.000 VNĐ", weight: 5, color: "#10b981", type: "money" },      // Ô 6
+            { label: "Kẹo mút", weight: 11.7, color: "#be185d", type: "gift" },       // Ô 7
+            { label: "Bánh ngọt", weight: 10, color: "#d97706", type: "gift" }         // Ô 8
+        ];
+
+        const totalWeight = prizes.reduce((sum, p) => sum + p.weight, 0);
+        let currentRotation = 0;
+        let isSpinning = false;
+
+        function initWheel() {
+            const size = 600; // Tăng độ phân giải canvas
+            canvas.width = size;
+            canvas.height = size;
+            drawWheel();
+        }
+
+        function drawWheel() {
+            const radius = canvas.width / 2;
+            const arc = (2 * Math.PI) / prizes.length;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            prizes.forEach((prize, i) => {
+                // Chúng ta trừ đi Math.PI / 2 để vẽ bắt đầu từ đỉnh (12 giờ)
+                // Tuy nhiên trong logic xoay, chúng ta sẽ xử lý tính toán dựa trên 0 radian (3 giờ)
+                const angle = i * arc;
+                
+                ctx.beginPath();
+                ctx.fillStyle = prize.color;
+                ctx.moveTo(radius, radius);
+                ctx.arc(radius, radius, radius, angle, angle + arc);
+                ctx.fill();
+                
+                ctx.strokeStyle = "rgba(255,255,255,0.4)";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Vẽ text
+                ctx.save();
+                ctx.translate(radius, radius);
+                ctx.rotate(angle + arc / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "white";
+                ctx.font = "bold 22px Inter";
+                
+                const text = prize.label;
+                ctx.fillText(text, radius - 40, 8);
+                ctx.restore();
+            });
+
+            // Viền và tâm
+            ctx.beginPath();
+            ctx.arc(radius, radius, 30, 0, 2 * Math.PI);
+            ctx.fillStyle = "#ffd700";
+            ctx.fill();
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = "#fff";
+            ctx.stroke();
+        }
+
+        function getWeightedRandom() {
+            let rand = Math.random() * totalWeight;
+            for (let i = 0; i < prizes.length; i++) {
+                if (rand < prizes[i].weight) return i;
+                rand -= prizes[i].weight;
+            }
+            return 0;
+        }
+
+        spinBtn.addEventListener('click', () => {
+            if (isSpinning) return;
+
+            isSpinning = true;
+            spinBtn.disabled = true;
+
+            const prizeIndex = getWeightedRandom();
+            const arcDeg = 360 / prizes.length;
+            
+            // Logic tính toán góc quay:
+            // 1. Phải quay ít nhất 5-10 vòng (360 * n)
+            // 2. Kim chỉ ở hướng 270 độ (đỉnh trên cùng trong hệ tọa độ canvas mặc định)
+            // 3. Vị trí ô trúng i nằm ở góc [i*arcDeg, (i+1)*arcDeg]
+            // Để ô i dừng ở đỉnh: góc xoay = 270 - (i * arcDeg + arcDeg/2)
+            
+            const extraRounds = 8 + Math.floor(Math.random() * 5);
+            const stopAngle = 270 - (prizeIndex * arcDeg + (arcDeg / 2));
+            
+            // Tính toán tổng số độ cần xoay thêm dựa trên vòng xoay hiện tại
+            // Sử dụng % 360 để giữ số độ quay không bị tăng lên vô hạn nếu quay nhiều lần
+            const currentActualRotation = currentRotation % 360;
+            const rotationToAdd = (extraRounds * 360) + (stopAngle - currentActualRotation);
+            
+            currentRotation += rotationToAdd;
+            canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+            setTimeout(() => {
+                showResult(prizes[prizeIndex]);
+                isSpinning = false;
+                spinBtn.disabled = false;
+            }, 5100);
+        });
+
+        function showResult(prize) {
+            resultModal.style.display = 'grid';
+            
+            if (prize.type === 'lose') {
+                resultTitle.innerText = "Tiếc quá!";
+                resultTitle.className = "text-2xl font-bold mb-2 text-gray-400";
+                resultText.innerText = "Chúc bạn may mắn hơn ở lần quay tới!";
+            } else {
+                resultTitle.innerText = "Chúc mừng bạn!";
+                resultTitle.className = "text-2xl font-bold mb-2 text-green-600";
+                resultText.innerHTML = `Bạn đã trúng:<br><span class="text-4xl font-black text-orange-500">${prize.label}</span>`;
+                startConfetti();
+            }
+        }
+
+        function closeModal() {
+            resultModal.style.display = 'none';
+            stopConfetti();
+        }
+
+        let confettiInterval;
+        function startConfetti() {
+            const confettiCanvas = document.getElementById('confetti');
+            const cctx = confettiCanvas.getContext('2d');
+            confettiCanvas.width = confettiCanvas.parentElement.offsetWidth;
+            confettiCanvas.height = confettiCanvas.parentElement.offsetHeight;
+            
+            const particles = Array.from({ length: 60 }, () => ({
+                x: confettiCanvas.width / 2,
+                y: confettiCanvas.height / 2,
+                dir: Math.random() * Math.PI * 2,
+                speed: 3 + Math.random() * 6,
+                color: `hsl(${Math.random() * 360}, 80%, 50%)`,
+                r: 2 + Math.random() * 4
+            }));
+
+            function animate() {
+                cctx.clearRect(0,0, confettiCanvas.width, confettiCanvas.height);
+                particles.forEach(p => {
+                    p.x += Math.cos(p.dir) * p.speed;
+                    p.y += Math.sin(p.dir) * p.speed;
+                    p.speed *= 0.97;
+                    cctx.fillStyle = p.color;
+                    cctx.beginPath();
+                    cctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                    cctx.fill();
+                });
+                confettiInterval = requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        function stopConfetti() {
+            cancelAnimationFrame(confettiInterval);
+        }
+
+        window.onload = initWheel;
+    </script>
+</body>
+</html>
